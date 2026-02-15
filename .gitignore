@@ -1,0 +1,99 @@
+# -------------------------
+# Node.js / server
+# -------------------------
+
+# Node modules
+node_modules/
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Dependency directories
+jspm_packages/
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Build directories
+dist/
+build/
+
+# dotenv environment variables
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# VS Code settings
+.vscode/
+.idea/
+
+# -------------------------
+# Flutter / client
+# -------------------------
+
+# Build outputs
+/build/
+/ios/Flutter/Flutter.framework
+/ios/Flutter/Flutter.podspec
+/ios/Flutter/Generated.xcconfig
+/ios/Flutter/App.framework
+/ios/Flutter/Flutter.podspec
+/ios/Pods/
+/ios/.symlinks/
+/ios/Flutter/Flutter.xcframework
+/android/.gradle/
+/android/app/build/
+/android/build/
+/.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+*.flutter-plugins
+*.flutter-plugins-dependencies
+*.dart_tool/
+/.flutter-plugins
+
+# Generated files
+*.iml
+*.lock
+*.log
+*.tmp
+*.swp
+*.DS_Store
+
+# Environment files
+.env
+.env.*
+
+# IDE folders
+.vscode/
+.idea/
+
+# -------------------------
+# General / system
+# -------------------------
+
+# MacOS files
+.DS_Store
+
+# Docker
+docker-compose.override.yml
