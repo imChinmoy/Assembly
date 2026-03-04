@@ -11,18 +11,30 @@ final studentNotifierProvider = AsyncNotifierProvider(
 class StudentStateNotifier  extends AsyncNotifier{
   @override
   FutureOr<dynamic> build() {
-    AsyncLoading();
+    state = const AsyncValue.loading();
     return fetchStudents();
   }
 
   Future<List<StudentModel>> fetchStudents() async {
-    await Future.delayed(const Duration(seconds: 1));
-    return StudentRepo().getStudents();
+    final result = await StudentRepo().getStudents();
+    return result;
   }
 
-  // Future<StudentModel> updateStudent(StudentModel student) async {
-  //   await Future.delayed(const Duration(seconds: 1));
-  //   return student;
-  // }
+  Future<bool> updateAttendance(String studentNo, bool isPresent) async {
+    final result = await StudentRepo().updateAttendance(studentNo, isPresent);
+    return result;
+  }
+
+  Future<StudentModel?> getStudentByStudentNo(String studentNo) async {
+    final result = await StudentRepo().getStudentByStudentNo(studentNo);
+    return result;
+  }
+
+  Future<AsyncValue<List<StudentModel>>> refresh() async {
+    state = const AsyncValue.loading();
+    await fetchStudents();
+    state = AsyncValue.data(await fetchStudents());
+    return state as AsyncValue<List<StudentModel>>;
+  }
 
 }

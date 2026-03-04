@@ -14,7 +14,9 @@ dependencies:
   http:
   google_fonts: 
   flutter_riverpod: 
-
+  flutter_dotenv:
+  mobile_scanner: 
+  permission_handler: 
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -31,6 +33,7 @@ flutter:
   assets:
     - assets/images/
     - assets/fonts/
+    - .env
   fonts:
     - family: Hunters K-Pop
       fonts:

@@ -1,90 +1,111 @@
 import { db } from "../database/index.js";
-import { students } from "../database/schema/student.js";
-import { desc, ilike, or, sql, eq } from "drizzle-orm";
+import { players, teams } from "../database/schema/student.js";
+import { eq, and, desc, sql, or, ilike } from "drizzle-orm";
 
-export const getAllStudents = async (req, res) => {
+export const getAllPlayers = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
+    const limit = parseInt(req.query.limit) || 20;
     const search = req.query.search?.trim() || "";
 
     const offset = (page - 1) * limit;
 
     const searchCondition = search
       ? or(
-          ilike(students.name, `%${search}%`),
-          ilike(students.studentId, `%${search}%`),
+          ilike(players.name, `%${search}%`),
+          ilike(players.student_no, `%${search}%`),
         )
       : undefined;
 
-    const studentsData = await db
+    const playersData = await db
       .select()
-      .from(students)
+      .from(players)
       .where(searchCondition)
-      .orderBy(desc(students.createdAt))
+      .orderBy(desc(players.id))
       .limit(limit)
       .offset(offset);
 
     const totalResult = await db
       .select({ count: sql`count(*)` })
-      .from(students)
+      .from(players)
       .where(searchCondition);
 
-    const totalStudents = Number(totalResult[0].count);
+    const totalPlayers = Number(totalResult[0].count);
 
     res.status(200).json({
       success: true,
       page,
       limit,
-      totalStudents,
-      totalPages: Math.ceil(totalStudents / limit),
-      data: studentsData,
+      totalPlayers,
+      totalPages: Math.ceil(totalPlayers / limit),
+      data: playersData,
     });
   } catch (error) {
-    console.error(error);
+    console.error("Error fetching players:", error);
     res.status(500).json({
       success: false,
-      message: "Failed to fetch students",
+      message: "Failed to fetch players",
       error: error.message,
     });
   }
 };
 
-export const getStudentById = async (req, res) => {
+export const getPlayerByStudentNo = async (req, res) => {
   try {
-    const { studentId } = req.params;
-    const student = await db
+    const { studentNo } = req.params;
+    const player = await db
       .select()
-      .from(students)
-      .where(eq(students.studentId, studentId));
+      .from(players)
+      .where(eq(players.student_no, studentNo));
 
-    res.status(200).json({ success: true, data: student });
+    if (!player.length) {
+      return res.status(404).json({
+        success: false,
+        message: "Player not found",
+      });
+    }
+
+    res.status(200).json({ success: true, data: player[0] });
   } catch (error) {
-    console.error(error);
+    console.error("Error fetching player:", error);
     res.status(500).json({
       success: false,
-      message: "Failed to fetch student",
+      message: "Failed to fetch player",
       error: error.message,
     });
   }
 };
 
-export const updateStudent = async (req, res) => {
+export const markAttendance = async (req, res) => {
   try {
-    const { studentId } = req.params;
-    const { isPresent } = req.body;
+    const { studentNo } = req.params;
+    const isPresent = req.body.is_present ?? req.body.isPresent ?? false;
 
-    const student = await db
-      .update(students)
-      .set({ isPresent })
-      .where(eq(students.studentId, studentId));
+    const updateResult = await db
+      .update(players)
+      .set({
+        is_present: Boolean(isPresent),
+        attendance_updated_at: new Date(),
+      })
+      .where(eq(players.student_no, studentNo))
+      .returning({ id: players.id });
 
-    res.status(200).json({ success: true, data: student });
+    if (!updateResult || updateResult.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Player not found to update attendance",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Attendance marked as ${isPresent ? "Present" : "Absent"}`,
+    });
   } catch (error) {
-    console.error(error);
+    console.error("Error updating attendance:", error);
     res.status(500).json({
       success: false,
-      message: "Failed to update student",
+      message: "Failed to update attendance",
       error: error.message,
     });
   }

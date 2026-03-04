@@ -1,10 +1,10 @@
-import express from "express";
-import { getAllStudents, getStudentById, updateStudent } from "../controllers/students.controller.js";
+import express from 'express';
+import { getAllPlayers, getPlayerByStudentNo, markAttendance } from '../controllers/students.controller.js';
 
 const router = express.Router();
 
-router.get("/", getAllStudents);
-router.get("/:studentId", getStudentById);
-router.patch("/:studentId", updateStudent);
+router.get('/', getAllPlayers);
+router.get('/:studentNo', getPlayerByStudentNo);
+router.patch('/attendance/:studentNo', markAttendance);
 
 export default router;

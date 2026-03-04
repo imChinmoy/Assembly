@@ -14,6 +14,24 @@ class CustomAppBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final primaryGradient = LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [
+        AppColors.primary.withOpacity(0.1),
+        AppColors.secondary.withOpacity(0.05),
+      ],
+    );
+
+    final surfaceGradient = LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [
+        AppColors.surface.withOpacity(0.8),
+        AppColors.card.withOpacity(0.6),
+      ],
+    );
+
     return SliverAppBar(
       pinned: true,
       expandedHeight: 180,
@@ -25,14 +43,7 @@ class CustomAppBar extends StatelessWidget {
           filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
           child: Container(
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  AppColors.surface.withOpacity(0.8),
-                  AppColors.card.withOpacity(0.6),
-                ],
-              ),
+              gradient: surfaceGradient,
               border: Border(
                 bottom: BorderSide(
                   color: AppColors.glassLight,
@@ -46,14 +57,7 @@ class CustomAppBar extends StatelessWidget {
               title: _buildAppBarTitle(),
               background: Container(
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      AppColors.primary.withOpacity(0.1),
-                      AppColors.secondary.withOpacity(0.05),
-                    ],
-                  ),
+                  gradient: primaryGradient,
                 ),
               ),
             ),
@@ -63,7 +67,7 @@ class CustomAppBar extends StatelessWidget {
       leading: Padding(
         padding: const EdgeInsets.all(8.0),
         child: _buildIconButton(
-          icon: Icons.menu_rounded,
+          icon: Icons.person_rounded,
           onPressed: onMenuPressed,
         ),
       ),
@@ -92,9 +96,9 @@ class CustomAppBar extends StatelessWidget {
               style: TextStyle(
                 fontSize: 28,
                 fontFamily: 'Hunters K-Pop',
-                color: const Color.fromARGB(255, 194, 155, 218),
+                color: AppColors.textQuaternary,
                 fontWeight: FontWeight.w700,
-                letterSpacing: 0.7,
+                letterSpacing: 1.9,
               ),
             ),
             const TextSpan(
@@ -103,8 +107,8 @@ class CustomAppBar extends StatelessWidget {
                 fontSize: 28,
                 fontWeight: FontWeight.w300,
                 fontFamily: 'Hunters K-Pop',
-                color: Colors.white,
-                letterSpacing: 0.5,
+                color: AppColors.textQuaternary,
+                letterSpacing: 1.5,
               ),
             ),
           ],
@@ -130,7 +134,7 @@ class CustomAppBar extends StatelessWidget {
             width: 48,
             height: 48,
             alignment: Alignment.center,
-            child: Icon(icon, size: 22),
+            child: Icon(icon, size: 22, color: AppColors.secondary),
           ),
         ),
       ),

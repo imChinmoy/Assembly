@@ -15,69 +15,125 @@ class FilterChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 80,
-      margin: const EdgeInsets.symmetric(vertical: 12),
+    return SizedBox(
+      height: 52,
       child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 20),
         scrollDirection: Axis.horizontal,
-        itemCount: filters.length,
         physics: const BouncingScrollPhysics(),
-        separatorBuilder: (context, index) => const SizedBox(width: 12),
-        itemBuilder: (context, index) {
+        itemCount: filters.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        itemBuilder: (_, index) {
           final filter = filters[index];
-          final isSelected = filter["label"] == selectedFilter;
-
-          return _buildFilterChip(
-            label: filter["label"],
-            icon: filter["icon"],
+          final isSelected = filter['label'] == selectedFilter;
+          return _FilterChip(
+            label: filter['label'] as String,
+            icon: filter['icon'] as IconData,
             isSelected: isSelected,
-            onTap: () => onFilterChanged(filter["label"]),
+            onTap: () => onFilterChanged(filter['label'] as String),
           );
         },
       ),
     );
   }
+}
 
-  Widget _buildFilterChip({
-    required String label,
-    required IconData icon,
-    required bool isSelected,
-    required VoidCallback onTap,
-  }) {
+class _FilterChip extends StatefulWidget {
+  const _FilterChip({
+    required this.label,
+    required this.icon,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  State<_FilterChip> createState() => _FilterChipState();
+}
+
+class _FilterChipState extends State<_FilterChip>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 100),
+      lowerBound: 0.95,
+      upperBound: 1.0,
+      value: 1.0,
+    );
+    _scale = _ctrl;
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOutCubic,
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        decoration: isSelected
-            ? AppTheme.claymorphicDecoration(
-                borderRadius: BorderRadius.circular(20),
-                gradient: AppTheme.primaryGradient,
-              )
-            : AppTheme.claymorphicDecorationInset(
-                borderRadius: BorderRadius.circular(20),
+      onTapDown: (_) => _ctrl.reverse(),
+      onTapUp: (_) {
+        _ctrl.forward();
+        widget.onTap();
+      },
+      onTapCancel: () => _ctrl.forward(),
+      child: ScaleTransition(
+        scale: _scale,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 280),
+          curve: Curves.easeOutCubic,
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+          decoration: widget.isSelected
+              ? AppTheme.claymorphicDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  gradient: AppTheme.primaryGradient,
+                )
+              : AppTheme.claymorphicDecorationInset(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+
+              widget.isSelected
+                  ? Icon(widget.icon, size: 18, color: Colors.white)
+                  : ShaderMask(
+                      shaderCallback: (bounds) =>
+                          AppTheme.primaryGradient.createShader(bounds),
+                      blendMode: BlendMode.srcIn,
+                      child: Icon(widget.icon,
+                          size: 18, color: AppColors.textTertiary),
+                    ),
+              const SizedBox(width: 8),
+              AnimatedDefaultTextStyle(
+                duration: const Duration(milliseconds: 280),
+                curve: Curves.easeOut,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: widget.isSelected
+                      ? FontWeight.w600
+                      : FontWeight.w500,
+                  color: widget.isSelected
+                      ? Colors.white
+                      : AppColors.textSecondary,
+                  letterSpacing: 0.2,
+                  decoration: TextDecoration.none,
+                ),
+                child: Text(widget.label),
               ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 20,
-              color: isSelected ? Colors.white : AppColors.textSecondary,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                color: isSelected ? Colors.white : AppColors.textSecondary,
-                letterSpacing: 0.2,
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

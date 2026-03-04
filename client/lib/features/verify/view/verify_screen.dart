@@ -1,112 +1,162 @@
+import 'dart:developer';
+
 import 'package:client/core/theme/theme.dart';
+import 'package:client/features/home/model/student_model.dart';
+import 'package:client/features/home/repository/student_repo.dart';
+import 'package:client/features/home/viewmodel/student_state_notifier.dart';
+import 'package:client/features/verify/viewmodel/attendance_notifier.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import 'dart:ui';
 import 'dart:async';
 
-class VerifyScreen extends StatefulWidget {
+import 'package:permission_handler/permission_handler.dart';
+
+class VerifyScreen extends ConsumerStatefulWidget {
   const VerifyScreen({Key? key}) : super(key: key);
 
   @override
-  State<VerifyScreen> createState() => _VerifyScreenState();
+  ConsumerState<VerifyScreen> createState() => _VerifyScreenState();
 }
 
-class _VerifyScreenState extends State<VerifyScreen>
+class _VerifyScreenState extends ConsumerState<VerifyScreen>
     with TickerProviderStateMixin {
   late AnimationController _scanLineController;
   late AnimationController _pulseController;
   late AnimationController _successController;
+  final StudentRepo _studentRepo = StudentRepo();
   
   bool _isScanning = false;
   bool _hasPermission = false;
   bool _showSuccess = false;
-  String? _scannedData;
+  bool _attendanceUpdating = false;
+
+  final TextEditingController _searchController = TextEditingController();
+  StudentModel? _searchedStudent;
+  bool _searchLoading = false;
+  String? _searchError;
+  List<StudentModel> _paginatedStudents = [];
+  int _currentPage = 1;
+  int _totalPages = 1;
+  int _totalPlayers = 0;
+  bool _listLoading = false;
+  final TextEditingController _listSearchController = TextEditingController();
+  late final MobileScannerController _scannerController;
 
   @override
   void initState() {
     super.initState();
     
-    // Scanning line animation
     _scanLineController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 2),
     );
 
-    // Pulse animation for corners
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1500),
     )..repeat(reverse: true);
 
-    // Success animation
     _successController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
     );
 
+    _scannerController = MobileScannerController(
+      detectionSpeed: DetectionSpeed.normal,
+      facing: CameraFacing.back,
+    );
     _checkPermission();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadPaginatedStudents());
   }
 
   @override
   void dispose() {
+    _scannerController.dispose();
     _scanLineController.dispose();
     _pulseController.dispose();
     _successController.dispose();
+    _searchController.dispose();
+    _listSearchController.dispose();
     super.dispose();
   }
 
   Future<void> _checkPermission() async {
-    // Simulate permission check
-    await Future.delayed(const Duration(milliseconds: 500));
-    setState(() {
-      _hasPermission = true;
-    });
+  final status = await Permission.camera.request();
+
+  setState(() {
+    _hasPermission = status.isGranted;
+  });
+}
+
+  Future<void> _startScanning() async {
+  final status = await Permission.camera.request();
+
+  if (!status.isGranted) {
+    setState(() => _hasPermission = false);
+    return;
   }
 
-  void _startScanning() {
+  setState(() {
+    _hasPermission = true;
+    _isScanning = true;
+    _showSuccess = false;
+  });
+
+  await _scannerController.start();
+  _scanLineController.repeat();
+}
+
+  void _onBarcodeDetected(BarcodeCapture capture) {
+    if (!_isScanning || _attendanceUpdating) return;
+    final List<Barcode> barcodes = capture.barcodes;
+    if (barcodes.isEmpty) return;
+    final String? raw = barcodes.first.rawValue;
+    if (raw == null || raw.trim().isEmpty) return;
+    final String studentNo = raw.trim();
+    log(studentNo);
+    _processScannedStudentNo(studentNo);
+  }
+
+  Future<void> _processScannedStudentNo(String studentNo) async {
+    if (_attendanceUpdating) return;
+    HapticFeedback.mediumImpact();
     setState(() {
-      _isScanning = true;
-      _showSuccess = false;
-      _scannedData = null;
+      _attendanceUpdating = true;
+      _showSuccess = true;
+      _isScanning = false;
     });
-    _scanLineController.repeat();
-    
-    // Simulate QR code detection after 3 seconds
-    Future.delayed(const Duration(seconds: 3), () {
-      if (_isScanning) {
-        _onQRDetected("STUDENT_ID_12345");
-      }
+    _scanLineController.stop();
+    _successController.forward(from: 0);
+
+    final notifier = ref.read(attendanceNotifierProvider.notifier);
+    final success = await notifier.updateAttendance(studentNo, true);
+
+    if (!mounted) return;
+    setState(() => _attendanceUpdating = false);
+    if (success) {
+      if (_searchedStudent?.studentId == studentNo) _searchByStudentNo();
+      _loadPaginatedStudents();
+    }
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (mounted) _showResultDialog(studentNo, success: success);
     });
   }
 
   void _stopScanning() {
-    setState(() {
-      _isScanning = false;
-    });
-    _scanLineController.stop();
-    _scanLineController.reset();
-  }
+  _scannerController.stop();
 
-  void _onQRDetected(String data) {
-    if (!_isScanning) return;
-    
-    HapticFeedback.mediumImpact();
-    setState(() {
-      _scannedData = data;
-      _showSuccess = true;
-      _isScanning = false;
-    });
-    
-    _scanLineController.stop();
-    _successController.forward(from: 0);
-    
-    // Show success dialog
-    Future.delayed(const Duration(milliseconds: 800), () {
-      _showResultDialog(data);
-    });
-  }
+  setState(() {
+    _isScanning = false;
+  });
 
-  void _showResultDialog(String data) {
+  _scanLineController.stop();
+  _scanLineController.reset();
+}
+
+  void _showResultDialog(String data, {bool success = true}) {
     showGeneralDialog(
       context: context,
       barrierDismissible: false,
@@ -123,30 +173,67 @@ class _VerifyScreenState extends State<VerifyScreen>
           ),
           child: FadeTransition(
             opacity: animation,
-            child: _buildResultDialog(data),
+            child: _buildResultDialog(data, success: success),
           ),
         );
       },
     );
   }
 
+  Future<void> _searchByStudentNo() async {
+    final studentNo = _searchController.text.trim();
+    if (studentNo.isEmpty) return;
+    setState(() {
+      _searchLoading = true;
+      _searchError = null;
+      _searchedStudent = null;
+    });
+    final student = await _studentRepo.getStudentByStudentNo(studentNo);
+    if (!mounted) return;
+    setState(() {
+      _searchLoading = false;
+      _searchedStudent = student;
+      _searchError = student == null ? 'Student not found' : null;
+    });
+  }
+
+  Future<void> _loadPaginatedStudents() async {
+    setState(() => _listLoading = true);
+    final result = await _studentRepo.getStudentsPaginated(
+      page: _currentPage,
+      limit: 20,
+      search: _listSearchController.text.trim(),
+    );
+    if (!mounted) return;
+    setState(() {
+      _listLoading = false;
+      _paginatedStudents = List<StudentModel>.from(result['data'] ?? []);
+      _totalPages = result['totalPages'] ?? 1;
+      _totalPlayers = result['totalPlayers'] ?? 0;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: Stack(
         children: [
-          // Animated background
           _buildAnimatedBackground(),
           
           SafeArea(
             child: Column(
               children: [
-                // Custom App Bar
                 _buildAppBar(),
 
                 Expanded(
-                  child: SingleChildScrollView(
+                  child: RefreshIndicator(
+                    onRefresh: () async {
+                      await ref.read(studentNotifierProvider.notifier).refresh();
+                    },
+                    child: SingleChildScrollView(
                     physics: const BouncingScrollPhysics(),
                     child: Padding(
                       padding: const EdgeInsets.all(24),
@@ -154,36 +241,318 @@ class _VerifyScreenState extends State<VerifyScreen>
                         children: [
                           const SizedBox(height: 20),
 
-                          // Title
                           _buildTitle(),
 
                           const SizedBox(height: 40),
-
-                          // Scanner Frame
                           _buildScannerFrame(),
 
                           const SizedBox(height: 40),
 
-                          // Instructions Card
                           _buildInstructionsCard(),
 
                           const SizedBox(height: 24),
 
-                          // Scan Button
                           _buildScanButton(),
 
                           const SizedBox(height: 16),
 
-                          // Manual Entry Option
                           _buildManualEntryButton(),
+
+                          const SizedBox(height: 32),
+
+                          _buildSearchSection(),
+
+                          const SizedBox(height: 24),
+
+
+                          _buildPaginatedListSection(),
                         ],
                       ),
                     ),
                   ),
                 ),
+                ),
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchSection() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: AppTheme.claymorphicDecoration(
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            "Search by Student No",
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: "Student number",
+                    filled: true,
+                    fillColor: AppColors.surface,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide.none,
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
+                  ),
+                  onSubmitted: (_) => _searchByStudentNo(),
+                ),
+              ),
+              const SizedBox(width: 12),
+              GestureDetector(
+                onTap: _searchLoading ? null : _searchByStudentNo,
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: AppTheme.claymorphicDecoration(
+                    borderRadius: BorderRadius.circular(14),
+                    gradient: AppTheme.primaryGradient,
+                  ),
+                  child: _searchLoading
+                      ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Icon(
+                          Icons.search_rounded,
+                          color: Colors.white,
+                          size: 24,
+                        ),
+                ),
+              ),
+            ],
+          ),
+          if (_searchError != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              _searchError!,
+              style: const TextStyle(
+                color: AppColors.error,
+                fontSize: 13,
+              ),
+            ),
+          ],
+          if (_searchedStudent != null) ...[
+            const SizedBox(height: 16),
+            _buildStudentCard(_searchedStudent!),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStudentCard(StudentModel student) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: AppTheme.claymorphicDecorationInset(
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  student.name,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  student.studentId,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                if (student.isPresent)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 4),
+                    child: Text(
+                      "Present",
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.success,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          if (!student.isPresent)
+            GestureDetector(
+              onTap: () => _processScannedStudentNo(student.studentId),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: AppTheme.claymorphicDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  gradient: AppTheme.primaryGradient,
+                ),
+                child: const Text(
+                  "Mark present",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPaginatedListSection() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: AppTheme.claymorphicDecoration(
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const Text(
+                "Browse students",
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const Spacer(),
+              SizedBox(
+                width: 140,
+                child: TextField(
+                  controller: _listSearchController,
+                  decoration: InputDecoration(
+                    hintText: "Filter",
+                    isDense: true,
+                    filled: true,
+                    fillColor: AppColors.surface,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide.none,
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                  ),
+                  onSubmitted: (_) {
+                    setState(() => _currentPage = 1);
+                    _loadPaginatedStudents();
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: () {
+                  setState(() => _currentPage = 1);
+                  _loadPaginatedStudents();
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: AppTheme.claymorphicDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.search_rounded, size: 20),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (_listLoading)
+            const Padding(
+              padding: EdgeInsets.all(24),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (_paginatedStudents.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(24),
+              child: Center(
+                child: Text(
+                  "No students found",
+                  style: TextStyle(color: AppColors.textSecondary),
+                ),
+              ),
+            )
+          else
+            Column(
+              children: _paginatedStudents
+                  .map((s) => Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: _buildStudentCard(s),
+                      ))
+                  .toList(),
+            ),
+          if (_paginatedStudents.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                IconButton(
+                  onPressed: _currentPage <= 1
+                      ? null
+                      : () {
+                          setState(() => _currentPage--);
+                          _loadPaginatedStudents();
+                        },
+                  icon: const Icon(Icons.chevron_left_rounded),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Text(
+                    "Page $_currentPage of $_totalPages ($_totalPlayers total)",
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  onPressed: _currentPage >= _totalPages
+                      ? null
+                      : () {
+                          setState(() => _currentPage++);
+                          _loadPaginatedStudents();
+                        },
+                  icon: const Icon(Icons.chevron_right_rounded),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -313,26 +682,26 @@ class _VerifyScreenState extends State<VerifyScreen>
             borderRadius: BorderRadius.circular(32),
             child: Stack(
               children: [
-                // Grid overlay
-                if (_isScanning) _buildGridOverlay(),
-
-                // Scanning line
+                if (_isScanning)
+                  Positioned.fill(
+                    child: MobileScanner(
+                      onDetect: _onBarcodeDetected,
+                      controller: _scannerController,
+                    ),
+                  ),
                 if (_isScanning) _buildScanningLine(),
 
-                // Corner brackets
                 _buildCornerBrackets(),
 
-                // Center content
-                Center(
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 400),
-                    child: _showSuccess
-                        ? _buildSuccessIndicator()
-                        : _buildCenterIcon(),
+                if (!_isScanning)
+                  Center(
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 400),
+                      child: _showSuccess
+                          ? _buildSuccessIndicator()
+                          : _buildCenterIcon(),
+                    ),
                   ),
-                ),
-
-                // Permission overlay
                 if (!_hasPermission) _buildPermissionOverlay(),
               ],
             ),
@@ -385,25 +754,21 @@ class _VerifyScreenState extends State<VerifyScreen>
   Widget _buildCornerBrackets() {
     return Stack(
       children: [
-        // Top-left
         Positioned(
           top: 24,
           left: 24,
           child: _buildCorner(Alignment.topLeft),
         ),
-        // Top-right
         Positioned(
           top: 24,
           right: 24,
           child: _buildCorner(Alignment.topRight),
         ),
-        // Bottom-left
         Positioned(
           bottom: 24,
           left: 24,
           child: _buildCorner(Alignment.bottomLeft),
         ),
-        // Bottom-right
         Positioned(
           bottom: 24,
           right: 24,
@@ -801,9 +1166,10 @@ class _VerifyScreenState extends State<VerifyScreen>
                                 child: _buildDialogButton(
                                   label: "Verify",
                                   onTap: () {
-                                    if (controller.text.isNotEmpty) {
+                                    if (controller.text.trim().isNotEmpty) {
                                       Navigator.pop(context);
-                                      _onQRDetected(controller.text);
+                                      _processScannedStudentNo(
+                                          controller.text.trim());
                                     }
                                   },
                                   isPrimary: true,
@@ -823,150 +1189,156 @@ class _VerifyScreenState extends State<VerifyScreen>
       },
     );
   }
-
-  Widget _buildResultDialog(String data) {
-    return Center(
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 32),
-        constraints: const BoxConstraints(maxWidth: 400),
-        decoration: AppTheme.claymorphicDecoration(
-          borderRadius: BorderRadius.circular(32),
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(32),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    AppColors.card.withOpacity(0.95),
-                    AppColors.surface.withOpacity(0.9),
-                  ],
+  Widget _buildResultDialog(String data, {bool success = true}) {
+    final isSuccess = success;
+    final accentColor = isSuccess ? AppColors.success : AppColors.error;
+    return Material(
+      type: MaterialType.transparency,
+      child: Center(
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 32),
+          constraints: const BoxConstraints(maxWidth: 400),
+          decoration: AppTheme.claymorphicDecoration(
+            borderRadius: BorderRadius.circular(32),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(32),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      AppColors.card.withOpacity(0.95),
+                      AppColors.surface.withOpacity(0.9),
+                    ],
+                  ),
+                  border: Border.all(
+                    color: AppColors.glassLight,
+                    width: 1.5,
+                  ),
+                  borderRadius: BorderRadius.circular(32),
                 ),
-                border: Border.all(
-                  color: AppColors.glassLight,
-                  width: 1.5,
-                ),
-                borderRadius: BorderRadius.circular(32),
-              ),
-              padding: const EdgeInsets.all(32),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Success animation
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        colors: [
-                          AppColors.success.withOpacity(0.3),
-                          AppColors.success.withOpacity(0.1),
-                        ],
-                      ),
-                    ),
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(32),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         gradient: LinearGradient(
                           colors: [
-                            AppColors.success,
-                            AppColors.success.withOpacity(0.8),
+                            accentColor.withOpacity(0.3),
+                            accentColor.withOpacity(0.1),
                           ],
                         ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.success.withOpacity(0.5),
-                            blurRadius: 30,
+                      ),
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: LinearGradient(
+                            colors: [
+                              accentColor,
+                              accentColor.withOpacity(0.8),
+                            ],
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: accentColor.withOpacity(0.5),
+                              blurRadius: 30,
+                            ),
+                          ],
+                        ),
+                        child: Icon(
+                          isSuccess ? Icons.check_rounded : Icons.error_rounded,
+                          size: 48,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Text(
+                      isSuccess ? "Verified Successfully!" : "Verification Failed",
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    if (!isSuccess)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 8),
+                        child: Text(
+                          "Student not found or request failed.",
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
+                      decoration: AppTheme.claymorphicDecorationInset(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.badge_rounded,
+                            size: 20,
+                            color: AppColors.textSecondary,
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            data,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textPrimary,
+                              letterSpacing: 1,
+                            ),
                           ),
                         ],
                       ),
-                      child: const Icon(
-                        Icons.check_rounded,
-                        size: 48,
-                        color: Colors.white,
-                      ),
                     ),
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  const Text(
-                    "Verified Successfully!",
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 12,
-                    ),
-                    decoration: AppTheme.claymorphicDecorationInset(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
+                    const SizedBox(height: 32),
+                    Row(
                       children: [
-                        const Icon(
-                          Icons.badge_rounded,
-                          size: 20,
-                          color: AppColors.textSecondary,
+                        Expanded(
+                          child: _buildDialogButton(
+                            label: "Scan Again",
+                            onTap: () {
+                              Navigator.pop(context);
+                              setState(() => _showSuccess = false);
+                            },
+                            isPrimary: false,
+                          ),
                         ),
-                        const SizedBox(width: 10),
-                        Text(
-                          data,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.textPrimary,
-                            letterSpacing: 1,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildDialogButton(
+                            label: "Done",
+                            onTap: () {
+                              Navigator.pop(context);
+                              Navigator.pop(context);
+                            },
+                            isPrimary: true,
                           ),
                         ),
                       ],
                     ),
-                  ),
-
-                  const SizedBox(height: 32),
-
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildDialogButton(
-                          label: "Scan Again",
-                          onTap: () {
-                            Navigator.pop(context);
-                            setState(() {
-                              _showSuccess = false;
-                              _scannedData = null;
-                            });
-                          },
-                          isPrimary: false,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _buildDialogButton(
-                          label: "Done",
-                          onTap: () {
-                            Navigator.pop(context);
-                            Navigator.pop(context);
-                          },
-                          isPrimary: true,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -974,7 +1346,7 @@ class _VerifyScreenState extends State<VerifyScreen>
       ),
     );
   }
-
+  
   Widget _buildDialogButton({
     required String label,
     required VoidCallback onTap,
@@ -1008,7 +1380,6 @@ class _VerifyScreenState extends State<VerifyScreen>
   }
 }
 
-// Custom painter for grid overlay
 class GridPainter extends CustomPainter {
   final Color color;
 
@@ -1022,7 +1393,7 @@ class GridPainter extends CustomPainter {
 
     const gridSize = 30.0;
 
-    // Draw vertical lines
+
     for (double i = 0; i < size.width; i += gridSize) {
       canvas.drawLine(
         Offset(i, 0),
@@ -1031,7 +1402,6 @@ class GridPainter extends CustomPainter {
       );
     }
 
-    // Draw horizontal lines
     for (double i = 0; i < size.height; i += gridSize) {
       canvas.drawLine(
         Offset(0, i),
@@ -1045,7 +1415,6 @@ class GridPainter extends CustomPainter {
   bool shouldRepaint(CustomPainter oldDelegate) => false;
 }
 
-// Extension for gradient opacity
 extension GradientOpacity on Gradient {
   Gradient withOpacity(double opacity) {
     if (this is LinearGradient) {

@@ -27,6 +27,7 @@ class AppColors {
   static const Color textPrimary = Color(0xFFFFFFFF);
   static const Color textSecondary = Color(0xFFB8BFCE);
   static const Color textTertiary = Color(0xFF6B7280);
+  static const Color textQuaternary = Color.fromARGB(255, 248, 254, 255);
   
   // Shadows for claymorphism
   static const Color shadowLight = Color(0x1AFFFFFF);

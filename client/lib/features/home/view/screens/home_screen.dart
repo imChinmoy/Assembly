@@ -1,4 +1,5 @@
 import 'package:client/core/theme/theme.dart';
+import 'package:client/features/home/view/screens/profile_screen.dart';
 import 'package:client/features/home/view/widgets/search_screen.dart';
 import 'package:client/features/home/view/widgets/stats_header.dart';
 import 'package:client/features/home/view/widgets/filter_chips.dart';
@@ -6,6 +7,7 @@ import 'package:client/features/home/view/widgets/exit_dialog.dart';
 import 'package:client/features/home/view/widgets/custom_app_bar.dart';
 import 'package:client/features/home/view/widgets/tile_widget.dart';
 import 'package:client/features/verify/view/verify_screen.dart';
+import 'package:client/features/verify/viewmodel/attendance_notifier.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -59,6 +61,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   @override
   Widget build(BuildContext context) {
     final studentsAsync = ref.watch(studentNotifierProvider);
+    final attendanceNotifier = ref.read(studentNotifierProvider.notifier);
 
     return WillPopScope(
       onWillPop: _onWillPop,
@@ -68,65 +71,84 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           data: (students) {
             List filteredStudents = _filterStudents(students);
 
-            return CustomScrollView(
-              physics: const BouncingScrollPhysics(
-                parent: AlwaysScrollableScrollPhysics(),
-              ),
-              slivers: [
-                CustomAppBar(
-                  onMenuPressed: () => Scaffold.of(context).openDrawer(),
-                  onSearchPressed: () {
-                    showSearch(
-                      context: context,
-                      delegate: StudentSearchDelegate(students),
-                    );
-                  },
+            return RefreshIndicator(
+              onRefresh: () async {
+                await attendanceNotifier.refresh();
+              },
+              child: CustomScrollView(
+                physics: const BouncingScrollPhysics(
+                  parent: AlwaysScrollableScrollPhysics(),
                 ),
-
-                SliverToBoxAdapter(
-                  child: FilterChips(
-                    filters: _filters,
-                    selectedFilter: _selectedFilter,
-                    onFilterChanged: (filter) {
-                      setState(() => _selectedFilter = filter);
-                      _filterAnimController.forward(from: 0);
-                    },
-                  ),
-                ),
-
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                    child: StatsHeader(
-                      allStudents: students,
-                      filteredStudents: filteredStudents,
-                      onScanPressed: _navigateToScanner,
-                    ),
-                  ),
-                ),
-
-                SliverPadding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  sliver: SliverList(
-                    delegate: SliverChildBuilderDelegate((context, index) {
-                      final student = filteredStudents[index];
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: TileWidget(
-                          name: student.name,
-                          studentId: student.studentId,
-                          year: student.year,
-                          email: student.email,
-                          phone: student.phone,
-                          isPresent: student.isPresent,
+                slivers: [
+                  CustomAppBar(
+                    onMenuPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const ProfileScreen(),
                         ),
                       );
-                    }, childCount: filteredStudents.length),
+                    },
+                    onSearchPressed: () {
+                      showSearch(
+                        context: context,
+                        delegate: StudentSearchDelegate(students),
+                      );
+                    },
                   ),
-                ),
+                  const SliverToBoxAdapter(child: SizedBox(height: 20)),
+                  SliverToBoxAdapter(
+                    child: FilterChips(
+                      filters: _filters,
+                      selectedFilter: _selectedFilter,
+                      onFilterChanged: (filter) {
+                        setState(() => _selectedFilter = filter);
+                        _filterAnimController.forward(from: 0);
+                      },
+                    ),
+                  ),
+                  const SliverToBoxAdapter(child: SizedBox(height: 20)),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                      child: StatsHeader(
+                        allStudents: students,
+                        filteredStudents: filteredStudents,
+                        onScanPressed: _navigateToScanner,
+                      ),
+                    ),
+                  ),
 
-                const SliverToBoxAdapter(child: SizedBox(height: 24)),
-              ],
+                  SliverPadding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate((context, index) {
+                        final student = filteredStudents[index];
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: TileWidget(
+                            name: student.name,
+                            studentId: student.studentId,
+                            year: student.year,
+                            email: student.email,
+                            phone: student.phone,
+                            isPresent: student.isPresent,
+                            onTogglePresence: () {
+                              attendanceNotifier.updateAttendance(
+                                student.studentId,
+                                !student.isPresent,
+                              );
+                              attendanceNotifier.refresh();
+                            },
+                          ),
+                        );
+                      }, childCount: filteredStudents.length),
+                    ),
+                  ),
+
+                  const SliverToBoxAdapter(child: SizedBox(height: 24)),
+                ],
+              ),
             );
           },
           error: (error, stackTrace) => Center(
@@ -187,14 +209,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   Future<bool> _onWillPop() async {
-
     if (_selectedFilter != "All") {
       setState(() {
         _selectedFilter = "All";
       });
       return false;
     }
-
 
     final now = DateTime.now();
     const maxDuration = Duration(seconds: 2);

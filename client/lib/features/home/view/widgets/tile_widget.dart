@@ -9,6 +9,7 @@ class TileWidget extends StatefulWidget {
   final String email;
   final String phone;
   final bool isPresent;
+  final VoidCallback? onTogglePresence;
 
   const TileWidget({
     super.key,
@@ -18,6 +19,7 @@ class TileWidget extends StatefulWidget {
     required this.email,
     required this.phone,
     this.isPresent = false,
+    this.onTogglePresence,
   });
 
   @override
@@ -101,7 +103,6 @@ class _TileWidgetState extends State<TileWidget>
                   children: [
                     _buildAvatar(),
                     const SizedBox(width: 16),
-
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -116,6 +117,7 @@ class _TileWidgetState extends State<TileWidget>
                                     fontWeight: FontWeight.w600,
                                     color: AppColors.textPrimary,
                                     letterSpacing: -0.2,
+                                    decoration: TextDecoration.none,
                                   ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
@@ -139,6 +141,7 @@ class _TileWidgetState extends State<TileWidget>
                                   fontSize: 13,
                                   color: AppColors.textSecondary,
                                   fontWeight: FontWeight.w500,
+                                  decoration: TextDecoration.none,
                                 ),
                               ),
                             ],
@@ -148,7 +151,6 @@ class _TileWidgetState extends State<TileWidget>
                         ],
                       ),
                     ),
-
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
@@ -253,6 +255,7 @@ class _TileWidgetState extends State<TileWidget>
               fontSize: 11,
               fontWeight: FontWeight.w600,
               color: AppColors.success,
+              decoration: TextDecoration.none,
             ),
           ),
         ],
@@ -286,6 +289,7 @@ class _TileWidgetState extends State<TileWidget>
               fontWeight: FontWeight.w600,
               color: AppColors.textSecondary,
               letterSpacing: 0.2,
+              decoration: TextDecoration.none,
             ),
           ),
         ],
@@ -345,266 +349,248 @@ class _TileWidgetState extends State<TileWidget>
                 border: Border.all(color: AppColors.glassLight, width: 1.5),
                 borderRadius: BorderRadius.circular(32),
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.fromLTRB(28, 28, 28, 24),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          AppColors.primary.withOpacity(0.15),
-                          AppColors.secondary.withOpacity(0.05),
-                        ],
-                      ),
-                      border: Border(
-                        bottom: BorderSide(
-                          color: AppColors.glassLight,
-                          width: 1,
-                        ),
-                      ),
-                    ),
-                    child: Column(
-                      children: [
-                        Align(
-                          alignment: Alignment.topRight,
-                          child: GestureDetector(
-                            onTap: () => Navigator.pop(context),
-                            child: Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: AppTheme.claymorphicDecorationInset(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              child: const Icon(
-                                Icons.close_rounded,
-                                size: 20,
-                                color: AppColors.textSecondary,
-                              ),
-                            ),
-                          ),
-                        ),
-
-                        const SizedBox(height: 12),
-
-                        Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            Container(
-                              height: 110,
-                              width: 110,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                gradient: RadialGradient(
-                                  colors: [
-                                    AppColors.primary.withOpacity(0.4),
-                                    AppColors.primary.withOpacity(0.0),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            Container(
-                              height: 100,
-                              width: 100,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                gradient: AppTheme.primaryGradient,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: AppColors.primary.withOpacity(0.5),
-                                    blurRadius: 30,
-                                    offset: const Offset(0, 10),
-                                  ),
-                                ],
-                                border: Border.all(
-                                  color: AppColors.glassLight,
-                                  width: 3,
-                                ),
-                              ),
-                              child: const Icon(
-                                Icons.person_rounded,
-                                size: 52,
-                                color: Colors.white,
-                              ),
-                            ),
-
-                            if (widget.isPresent)
-                              Positioned(
-                                right: 5,
-                                bottom: 5,
-                                child: Container(
-                                  padding: const EdgeInsets.all(3),
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: AppColors.card,
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: AppColors.success.withOpacity(
-                                          0.6,
-                                        ),
-                                        blurRadius: 12,
-                                      ),
-                                    ],
-                                  ),
-                                  child: Container(
-                                    width: 18,
-                                    height: 18,
-                                    decoration: const BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      color: AppColors.success,
-                                    ),
-                                    child: const Icon(
-                                      Icons.check_rounded,
-                                      size: 12,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ),
-                              ),
+              child: Material(
+                color: Colors.transparent,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.fromLTRB(28, 28, 28, 24),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            AppColors.primary.withOpacity(0.15),
+                            AppColors.secondary.withOpacity(0.05),
                           ],
                         ),
-
-                        const SizedBox(height: 20),
-
-                        Text(
-                          widget.name,
-                          style: const TextStyle(
-                            fontSize: 26,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.textPrimary,
-                            letterSpacing: -0.5,
+                        border: Border(
+                          bottom: BorderSide(
+                            color: AppColors.glassLight,
+                            width: 1,
                           ),
-                          textAlign: TextAlign.center,
                         ),
-
-                        const SizedBox(height: 12),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 18,
-                            vertical: 10,
-                          ),
-                          decoration: AppTheme.claymorphicDecorationInset(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              ShaderMask(
-                                shaderCallback: (bounds) => AppTheme
-                                    .primaryGradient
-                                    .createShader(bounds),
+                      ),
+                      child: Column(
+                        children: [
+                          Align(
+                            alignment: Alignment.topRight,
+                            child: GestureDetector(
+                              onTap: () => Navigator.pop(context),
+                              child: Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: AppTheme.claymorphicDecorationInset(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
                                 child: const Icon(
-                                  Icons.badge_rounded,
-                                  size: 18,
+                                  Icons.close_rounded,
+                                  size: 20,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              Container(
+                                height: 110,
+                                width: 110,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  gradient: RadialGradient(
+                                    colors: [
+                                      AppColors.primary.withOpacity(0.4),
+                                      AppColors.primary.withOpacity(0.0),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              Container(
+                                height: 100,
+                                width: 100,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  gradient: AppTheme.primaryGradient,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: AppColors.primary.withOpacity(0.5),
+                                      blurRadius: 30,
+                                      offset: const Offset(0, 10),
+                                    ),
+                                  ],
+                                  border: Border.all(
+                                    color: AppColors.glassLight,
+                                    width: 3,
+                                  ),
+                                ),
+                                child: const Icon(
+                                  Icons.person_rounded,
+                                  size: 52,
                                   color: Colors.white,
                                 ),
                               ),
-                              const SizedBox(width: 10),
-                              Text(
-                                widget.studentId,
-                                style: const TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.textPrimary,
-                                  letterSpacing: 0.8,
+                              if (widget.isPresent)
+                                Positioned(
+                                  right: 5,
+                                  bottom: 5,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(3),
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: AppColors.card,
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: AppColors.success.withOpacity(
+                                            0.6,
+                                          ),
+                                          blurRadius: 12,
+                                        ),
+                                      ],
+                                    ),
+                                    child: Container(
+                                      width: 18,
+                                      height: 18,
+                                      decoration: const BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: AppColors.success,
+                                      ),
+                                      child: const Icon(
+                                        Icons.check_rounded,
+                                        size: 12,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 20),
+                          Text(
+                            widget.name,
+                            style: const TextStyle(
+                              fontSize: 26,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textPrimary,
+                              letterSpacing: -0.5,
+                              decoration: TextDecoration.none,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 18,
+                              vertical: 10,
+                            ),
+                            decoration: AppTheme.claymorphicDecorationInset(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                ShaderMask(
+                                  shaderCallback: (bounds) => AppTheme
+                                      .primaryGradient
+                                      .createShader(bounds),
+                                  child: const Icon(
+                                    Icons.badge_rounded,
+                                    size: 18,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Text(
+                                  widget.studentId,
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.textPrimary,
+                                    letterSpacing: 0.8,
+                                    decoration: TextDecoration.none,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(28),
+                      child: Column(
+                        children: [
+                          _buildInfoCard(
+                            icon: Icons.email_rounded,
+                            label: "Email Address",
+                            value: widget.email,
+                            gradient: AppTheme.primaryGradient,
+                          ),
+                          const SizedBox(height: 14),
+                          _buildInfoCard(
+                            icon: Icons.phone_rounded,
+                            label: "Phone Number",
+                            value: widget.phone,
+                            gradient: AppTheme.accentGradient,
+                          ),
+                          const SizedBox(height: 14),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildInfoCard(
+                                  icon: Icons.school_rounded,
+                                  label: "Year",
+                                  value: widget.year,
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      AppColors.accentSecondary,
+                                      AppColors.accentSecondary.withOpacity(0.7),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: _buildInfoCard(
+                                  icon: widget.isPresent
+                                      ? Icons.check_circle_rounded
+                                      : Icons.cancel_rounded,
+                                  label: "Status",
+                                  value: widget.isPresent ? "Present" : "Absent",
+                                  gradient: LinearGradient(
+                                    colors: widget.isPresent
+                                        ? [
+                                            AppColors.success,
+                                            AppColors.success.withOpacity(0.7),
+                                          ]
+                                        : [
+                                            AppColors.error,
+                                            AppColors.error.withOpacity(0.7),
+                                          ],
+                                  ),
                                 ),
                               ),
                             ],
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 24),
+                          _buildActionButton(
+                            label: widget.isPresent ? "Mark as Absent" : "Mark as Present",
+                            icon: widget.isPresent 
+                                ? Icons.cancel_rounded 
+                                : Icons.check_circle_rounded,
+                            onTap: () {
+                              widget.onTogglePresence?.call();
+                              Navigator.pop(context);
+                            },
+                            isPrimary: !widget.isPresent,
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-
-                  Padding(
-                    padding: const EdgeInsets.all(28),
-                    child: Column(
-                      children: [
-                        _buildInfoCard(
-                          icon: Icons.email_rounded,
-                          label: "Email Address",
-                          value: widget.email,
-                          gradient: AppTheme.primaryGradient,
-                        ),
-                        const SizedBox(height: 14),
-                        _buildInfoCard(
-                          icon: Icons.phone_rounded,
-                          label: "Phone Number",
-                          value: widget.phone,
-                          gradient: AppTheme.accentGradient,
-                        ),
-                        const SizedBox(height: 14),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildInfoCard(
-                                icon: Icons.school_rounded,
-                                label: "Year",
-                                value: widget.year,
-                                gradient: LinearGradient(
-                                  colors: [
-                                    AppColors.accentSecondary,
-                                    AppColors.accentSecondary.withOpacity(0.7),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: _buildInfoCard(
-                                icon: widget.isPresent
-                                    ? Icons.check_circle_rounded
-                                    : Icons.cancel_rounded,
-                                label: "Status",
-                                value: widget.isPresent ? "Present" : "Absent",
-                                gradient: LinearGradient(
-                                  colors: widget.isPresent
-                                      ? [
-                                          AppColors.success,
-                                          AppColors.success.withOpacity(0.7),
-                                        ]
-                                      : [
-                                          AppColors.error,
-                                          AppColors.error.withOpacity(0.7),
-                                        ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-
-                        const SizedBox(height: 24),
-
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildActionButton(
-                                label: "Message",
-                                icon: Icons.message_rounded,
-                                onTap: () {
-                                  Navigator.pop(context);
-                                },
-                                isPrimary: false,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: _buildActionButton(
-                                label: "Call",
-                                icon: Icons.phone_rounded,
-                                onTap: () {
-                                  Navigator.pop(context);
-                                },
-                                isPrimary: true,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -649,6 +635,7 @@ class _TileWidgetState extends State<TileWidget>
                     fontWeight: FontWeight.w600,
                     color: AppColors.textTertiary,
                     letterSpacing: 0.5,
+                    decoration: TextDecoration.none,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -658,6 +645,7 @@ class _TileWidgetState extends State<TileWidget>
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                     color: AppColors.textPrimary,
+                    decoration: TextDecoration.none,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -691,16 +679,16 @@ class _TileWidgetState extends State<TileWidget>
           onTap: onTap,
           borderRadius: BorderRadius.circular(16),
           child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 14),
+            padding: const EdgeInsets.symmetric(vertical: 16),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(
                   icon,
-                  size: 20,
+                  size: 22,
                   color: isPrimary ? Colors.white : AppColors.textSecondary,
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 10),
                 Text(
                   label,
                   style: TextStyle(
@@ -708,6 +696,7 @@ class _TileWidgetState extends State<TileWidget>
                     fontWeight: FontWeight.w600,
                     color: isPrimary ? Colors.white : AppColors.textPrimary,
                     letterSpacing: 0.3,
+                    decoration: TextDecoration.none,
                   ),
                 ),
               ],
